@@ -792,6 +792,10 @@ func TestVirtualNodeClientFromServerPeerAttributes(t *testing.T) {
 	defer func() { require.NoError(t, conn.Shutdown(t.Context())) }()
 
 	require.NoError(t, conn.ConsumeTraces(t.Context(), traces))
+	if runtime.GOOS == "windows" {
+		// On Windows timing doesn't tick forward quickly for the store data to expire, force a wait before expiring.
+		time.Sleep(time.Second)
+	}
 	conn.store.Expire()
 	md, err := conn.buildMetrics()
 	require.NoError(t, err)
