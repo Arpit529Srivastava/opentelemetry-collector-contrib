@@ -299,6 +299,10 @@ func (p *serviceGraphConnector) aggregateMetrics(ctx context.Context, td ptrace.
 						e.ServerLatencySec = spanDuration(span)
 						e.Failed = e.Failed || span.Status().Code() == ptrace.StatusCodeError
 						p.upsertDimensions(serverKind, e.Dimensions, rAttributes, span.Attributes())
+
+						if virtualNodeFeatureGate.IsEnabled() {
+							p.upsertPeerAttributes(p.config.VirtualNodeServerPeerAttributes, e.ServerPeer, span.Attributes())
+						}
 					})
 				default:
 					// this span is not part of an edge
@@ -364,10 +368,14 @@ func (p *serviceGraphConnector) onExpire(e *store.Edge) {
 
 	p.telemetryBuilder.ConnectorServicegraphExpiredEdges.Add(context.Background(), 1)
 
-	if virtualNodeFeatureGate.IsEnabled() && len(p.config.VirtualNodePeerAttributes) > 0 {
+	if virtualNodeFeatureGate.IsEnabled() && (len(p.config.VirtualNodePeerAttributes) > 0 || len(p.config.VirtualNodeServerPeerAttributes) > 0) {
 		e.ConnectionType = store.VirtualNode
 		if e.ClientService == "" && e.Key.SpanIDIsEmpty() {
-			e.ClientService = "user"
+			if len(p.config.VirtualNodeServerPeerAttributes) > 0 {
+				e.ClientService = p.getPeerHost(p.config.VirtualNodeServerPeerAttributes, e.ServerPeer)
+			} else {
+				e.ClientService = "user"
+			}
 			if p.config.VirtualNodeExtraLabel {
 				e.VirtualNodeLabel = store.ClientVirtualNode
 			}

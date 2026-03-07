@@ -765,6 +765,44 @@ func TestVirtualNodeClientLabels(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestVirtualNodeClientFromServerPeerAttributes(t *testing.T) {
+	traces := ptrace.NewTraces()
+	rs := traces.ResourceSpans().AppendEmpty()
+	rs.Resource().Attributes().PutStr("service.name", "instrumented-server")
+	span := rs.ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+	span.SetTraceID([16]byte{0xa0})
+	span.SetSpanID([8]byte{0xb0})
+	span.SetKind(ptrace.SpanKindServer)
+	span.SetStartTimestamp(1_800_000_000_000_000_000)
+	span.SetEndTimestamp(1_800_000_000_000_001_000)
+	span.Attributes().PutStr("peer.service", "uninstrumented-client")
+
+	cfg := &Config{
+		Store:                           StoreConfig{MaxItems: 10, TTL: time.Nanosecond},
+		VirtualNodePeerAttributes:       []string{"peer.service"},
+		VirtualNodeServerPeerAttributes: []string{"peer.service"},
+		VirtualNodeExtraLabel:           true,
+	}
+
+	set := componenttest.NewNopTelemetrySettings()
+	set.Logger = zaptest.NewLogger(t)
+	conn, err := newConnector(set, cfg, newMockMetricsExporter())
+	require.NoError(t, err)
+	require.NoError(t, conn.Start(t.Context(), componenttest.NewNopHost()))
+	defer func() { require.NoError(t, conn.Shutdown(t.Context())) }()
+
+	require.NoError(t, conn.ConsumeTraces(t.Context(), traces))
+	conn.store.Expire()
+	md, err := conn.buildMetrics()
+	require.NoError(t, err)
+	require.Equal(t, 3, md.MetricCount())
+
+	dp := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Sum().DataPoints().At(0)
+	clientAttr, ok := dp.Attributes().Get("client")
+	require.True(t, ok)
+	assert.Equal(t, "uninstrumented-client", clientAttr.Str())
+}
+
 func TestExponentialHistogram(t *testing.T) {
 	// Prepare
 	set := componenttest.NewNopTelemetrySettings()

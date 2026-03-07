@@ -48,6 +48,9 @@ type Edge struct {
 	// Peer is a map of peer attributes to be used for virtual node matching
 	Peer map[string]string
 
+	// ServerPeer is a map of peer attributes from server spans to be used for virtual client node matching
+	ServerPeer map[string]string
+
 	// VirtualNodeLabel is an optional label to be added to the spans
 	VirtualNodeLabel VirtualNodeLabel
 }
@@ -58,6 +61,7 @@ func newEdge(key Key, ttl time.Duration) *Edge {
 		Dimensions: make(map[string]string),
 		expiration: time.Now().Add(ttl),
 		Peer:       make(map[string]string),
+		ServerPeer: make(map[string]string),
 	}
 }
 

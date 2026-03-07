@@ -39,6 +39,9 @@ type Config struct {
 	// VirtualNodePeerAttributes the list of attributes need to match, the higher the front, the higher the priority.
 	VirtualNodePeerAttributes []string `mapstructure:"virtual_node_peer_attributes"`
 
+	// VirtualNodeServerPeerAttributes the list of server span attributes need to match for virtual client node, the higher the front, the higher the priority.
+	VirtualNodeServerPeerAttributes []string `mapstructure:"virtual_node_server_peer_attributes"`
+
 	// VirtualNodeExtraLabel enables the `virtual_node` label to be added to the spans.
 	VirtualNodeExtraLabel bool `mapstructure:"virtual_node_extra_label"`
 
